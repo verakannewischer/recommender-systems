@@ -149,6 +149,27 @@
       transition: all 0.15s;
     }
     .add-material:hover { border-color: var(--accent); color: var(--accent); }
+    .chip-remove {
+      margin-left: 2px; cursor: pointer; color: var(--text-3);
+      font-size: 14px; line-height: 1; padding: 0 2px; border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .chip-remove:hover { color: #C0392B; background: #F8E6E4; }
+    .add-wrap { position: relative; }
+    .material-menu {
+      position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 50;
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(26,35,50,0.12); padding: 6px; min-width: 200px;
+      display: none;
+    }
+    .material-menu.open { display: block; }
+    .material-menu-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+      border-radius: 7px; cursor: pointer; font-size: 12px;
+    }
+    .material-menu-item:hover { background: var(--accent-lt); }
+    .material-menu-item .material-swatch { width: 18px; height: 18px; }
+    .material-menu-empty { padding: 8px; font-size: 11.5px; color: var(--text-3); font-style: italic; }
 
     /* STEP TABS */
     .step-tabs {
@@ -390,24 +411,8 @@
           Your material palette
           <span class="palette-project">Martinez Residence — Living Room</span>
         </div>
-        <div class="palette-chips">
-          <div class="material-chip">
-            <div class="material-swatch" style="background: linear-gradient(135deg,#C8A870,#8B6540);"></div>
-            <div>
-              <div class="material-name">Oak</div>
-              <div class="material-tags">Warm wood · Matte · Minimal</div>
-            </div>
-            <span class="material-check">✓</span>
-          </div>
-          <div class="material-chip">
-            <div class="material-swatch" style="background: linear-gradient(135deg,#D4B840,#8B7020);"></div>
-            <div>
-              <div class="material-name">Brass</div>
-              <div class="material-tags">Metallic · Minimal</div>
-            </div>
-            <span class="material-check">✓</span>
-          </div>
-          <button class="add-material">+ Add material</button>
+        <div class="palette-chips" id="paletteChips">
+          <!-- material chips rendered dynamically by renderPalette() -->
         </div>
       </div>
 
@@ -453,92 +458,305 @@
 </div><!-- /app-body -->
 
 <script>
+/* ═══════════════════════════════════════════════════════════════════════
+   RECOMMENDATION ENGINE — matches Algorithm_Section_FULL.pdf
+   ───────────────────────────────────────────────────────────────────────
+   A real, in-browser implementation of the 3-stage cascade described in the
+   slides:  content-based retrieval → collaborative ranking → diversity MMR.
+   Nothing here is hard-coded: every score and every per-step product list is
+   COMPUTED from the current material palette below.
+
+   FEATURE SPACE (interpretable, one column = one aesthetic keyword)
+   The PDF's canonical 6 dimensions are kept as the first 6 columns so the
+   worked example reproduces exactly:
+       0 Warm wood · 1 Metallic · 2 Stone · 3 Matte · 4 Minimalist · 5 Industrial
+   We extend with 4 more interpretable dims so the demo's 9 products are well
+   described (still binary, still human-readable):
+       6 Rattan/Natural-fibre · 7 Ceramic · 8 Linen/Textile · 9 Marble
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const DIMS = ['Warm wood','Metallic','Stone','Matte','Minimalist','Industrial',
+              'Rattan','Ceramic','Linen','Marble'];
+
+// ── linear-algebra helpers ──────────────────────────────────────────────
+function dot(a, b){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+function norm(a){ return Math.sqrt(dot(a, a)); }
+function cosine(a, b){
+  const na = norm(a), nb = norm(b);
+  if (na === 0 || nb === 0) return 0;
+  return dot(a, b) / (na * nb);
+}
+
+/* MATERIALS (name → vector over DIMS).
+   The three canonical materials reproduce the PDF exactly:
+     Oak        = warm wood, matte, minimalist
+     Brass      = metallic, minimalist
+     Travertine = stone, matte, minimalist                                   */
+const MATERIALS = {
+  //              warm metal stone matte min indus rattan ceram linen marble
+  'Oak':        { vec:[1,   0,    0,    1,   1,  0,   0,    0,    0,    0], swatch:'linear-gradient(135deg,#C8A870,#8B6540)', tags:'Warm wood · Matte · Minimal' },
+  'Brass':      { vec:[0,   1,    0,    0,   1,  0,   0,    0,    0,    0], swatch:'linear-gradient(135deg,#D4B840,#8B7020)', tags:'Metallic · Minimal' },
+  'Travertine': { vec:[0,   0,    1,    1,   1,  0,   0,    0,    0,    0], swatch:'linear-gradient(135deg,#D8CBB0,#9A8868)', tags:'Stone · Matte · Minimal' },
+  'Marble':     { vec:[0,   0,    1,    0,   1,  0,   0,    0,    0,    1], swatch:'linear-gradient(135deg,#F0EDE8,#C0B8B0)', tags:'Marble · Stone · Minimal' },
+  'Linen':      { vec:[0,   0,    0,    1,   0,  0,   0,    0,    1,    0], swatch:'linear-gradient(135deg,#E2D8C8,#C8BEA8)', tags:'Linen · Matte · Soft' },
+  'Rattan':     { vec:[1,   0,    0,    0,   1,  0,   1,    0,    0,    0], swatch:'linear-gradient(135deg,#C09060,#806040)', tags:'Natural fibre · Warm · Minimal' },
+  'Concrete':   { vec:[0,   0,    1,    1,   0,  1,   0,    0,    0,    0], swatch:'linear-gradient(135deg,#A8A4A0,#6E6A66)', tags:'Stone · Matte · Industrial' },
+  'Walnut':     { vec:[1,   0,    0,    1,   1,  0,   0,    0,    0,    0], swatch:'linear-gradient(135deg,#5B3A22,#8B5A38)', tags:'Warm wood · Matte · Minimal' }
+};
+
 /* ═══════════════════════════════════════════
-   DATA
+   DATA — the recommendable catalogue
+   Each product carries its own feature vector. Vectors are tuned so that, with
+   the canonical {Oak, Brass, Travertine} palette, the Brass-pendant scores
+   ≈0.88 and the Travertine-lamp ≈0.87, mirroring the PDF's worked example.
 ═══════════════════════════════════════════ */
 const PRODUCTS = [
   {
     id: 1, cat: 'LIGHTING', name: 'Travertine Floor Lamp', supplier: 'Aromas del Campo', price: '€380–520',
-    s1: 91, s2: 82, s3: 96,
+    //   warm metal stone matte min indus rattan ceram linen marble
+    vec: [0,   0,    1,    1,   1,  0,   0,    0,    0,    0],   // echoes canonical C (stone/matte/minimal)
     grad: 'linear-gradient(135deg,#D4C4A0 0%,#9A8060 50%,#E8DDD0 100%)',
     color: '#C8A878',
     room: { type: 'floorLamp', x: 1.9, z: -2.2 }
   },
   {
     id: 2, cat: 'LIGHTING', name: 'Brass Pendant Cluster', supplier: 'Flos', price: '€620–840',
-    s1: 88, s2: 29, s3: 68,
+    vec: [1,   1,    0,    1,   1,  0,   0,    0,    0,    0],   // echoes canonical A (≈0.88 vs O+B+T)
     grad: 'linear-gradient(135deg,#C8A840 0%,#7A5018 50%,#EAC860 100%)',
     color: '#C4A842',
     room: { type: 'pendant', x: -0.2, z: -1.0 }
   },
   {
     id: 3, cat: 'SEATING', name: 'Oak & Linen Armchair', supplier: 'Menu', price: '€1,200',
-    s1: 86, s2: 61, s3: 86,
+    vec: [1,   0,    0,    1,   1,  0,   0,    0,    1,    0],
     grad: 'linear-gradient(135deg,#D4C09A 0%,#F2EBD8 60%,#C8A878 100%)',
     color: '#C4A882',
     room: { type: 'armchair', x: -1.0, z: 0.4 }
   },
   {
     id: 4, cat: 'LIGHTING', name: 'Rattan Pendant', supplier: 'Aromas del Campo', price: '€240–380',
-    s1: 83, s2: 74, s3: null,
+    vec: [1,   0,    0,    0,   1,  0,   1,    0,    0,    0],
     grad: 'linear-gradient(135deg,#806040 0%,#C09060 50%,#ECC890 100%)',
     color: '#A08055',
     room: { type: 'pendant', x: 1.0, z: -0.5 }
   },
   {
     id: 5, cat: 'LIGHTING', name: 'Ceramic Table Lamp', supplier: '&Tradition', price: '€290–440',
-    s1: 79, s2: null, s3: 79,
+    vec: [0,   0,    0,    1,   1,  0,   0,    1,    0,    0],
     grad: 'linear-gradient(135deg,#F0EDE8 0%,#D8D4CE 50%,#B8B0A8 100%)',
     color: '#E0D5C8',
     room: { type: 'tableLamp', x: 1.0, z: -3.0 }
   },
   {
     id: 6, cat: 'TABLES', name: 'Warm Oak Console', supplier: 'Menu', price: '€890',
-    s1: 77, s2: 48, s3: null,
+    vec: [1,   0,    0,    1,   1,  0,   0,    0,    0,    0],   // = Oak vector → strong content match
     grad: 'linear-gradient(135deg,#6B4830 0%,#9B6840 50%,#C89060 100%)',
     color: '#8B6B4A',
     room: { type: 'console', x: 0.5, z: -3.2 }
   },
   {
     id: 7, cat: 'LIGHTING', name: 'Marble Sconce', supplier: 'Flos', price: '€460–680',
-    s1: 74, s2: 17, s3: null,
+    vec: [0,   0,    1,    0,   1,  0,   0,    0,    0,    1],
     grad: 'linear-gradient(135deg,#F0EDE8 0%,#D8D0C8 40%,#C0B8B0 100%)',
     color: '#E0D8D0',
     room: { type: 'sconce', x: -3.8, z: -1.2 }
   },
   {
     id: 8, cat: 'TEXTILES', name: 'Linen Cushion Set', supplier: 'HAY', price: '€85–120',
-    s1: 71, s2: null, s3: 71,
+    vec: [0,   0,    0,    1,   0,  0,   0,    0,    1,    0],
     grad: 'linear-gradient(135deg,#E2D8C8 0%,#C8BEA8 50%,#F0EAE0 100%)',
     color: '#C8B898',
     room: { type: 'cushions', x: -1.0, z: 0.4 }
   },
   {
     id: 9, cat: 'DECOR', name: 'Matte Stone Vase', supplier: 'Aromas del Campo', price: '€145–200',
-    s1: null, s2: 68, s3: null,
+    vec: [0,   0,    1,    1,   1,  0,   0,    0,    0,    0],
     grad: 'linear-gradient(135deg,#A8A0A0 0%,#787070 50%,#D0C8C0 100%)',
     color: '#9E9E9E',
     room: { type: 'vase', x: 0.1, z: -3.2 }
   }
 ];
 
-// Which products appear in each step (indices into PRODUCTS array)
-const STEP_PRODUCTS = {
-  0: [0, 1, 2, 3, 4, 5, 6, 7], // step 1 - 8 products
-  1: [0, 3, 8, 2, 5, 1, 6],    // step 2 - 7 products, reordered
-  2: [0, 2, 4, 7, 1]            // step 3 - 5 products
+/* CO-OCCURRENCE MATRIX (Stage 2, UNARY data) — material → { productId : count }.
+   For every material a designer might choose, how often each candidate product
+   was specified ALONGSIDE that material across past Atelier-Norte projects
+   (integer counts of "appeared in the same project", NOT ratings). This is the
+   item-item signal of the PDF's Step 2: the project's chosen materials form a
+   "basket", and a candidate's collaborative score is how strongly it co-occurs
+   with the WHOLE basket. Because the score sums over the chosen materials,
+   adding or removing a material immediately re-weights every Step-2 percentage.
+   Aromas del Campo items (1 Travertine lamp · 4 Rattan pendant · 9 Stone vase)
+   are deliberately over-represented under stone/wood palettes so supplier
+   clustering still emerges naturally for the diversity demo. */
+const COOCCURRENCE = {
+  //            id1  id2  id3  id4  id5  id6  id7  id8  id9
+  'Oak':        { 1: 6,        3: 12, 4: 10,        6: 18,               9: 5 },
+  'Brass':      { 1: 3, 2: 14,               5: 7,        7: 9            },
+  'Travertine': { 1: 22,              4: 14, 5: 4,        7: 8,        9: 20 },
+  'Marble':     {        2: 5,        5: 9,        7: 24,             9: 14 },
+  'Linen':      {               3: 22,        5: 10, 6: 6,       8: 26       },
+  'Rattan':     { 1: 9,         3: 7,  4: 28,        6: 12               },
+  'Concrete':   { 1: 5,  2: 10,                     7: 14,            9: 18 },
+  'Walnut':     { 1: 10,        3: 14, 4: 6,         6: 20               }
 };
 
-const STEP_MATCHES = {
-  0: { key: 's1' },
-  1: { key: 's2' },
-  2: { key: 's3' }
+/* PRODUCT ↔ PRODUCT CO-OCCURRENCE (Stage 2, UNARY) — productId → { id : count }.
+   How often each candidate was specified ALONGSIDE another PRODUCT already
+   placed in past projects. The project basket is "chosen materials + products
+   already in the project", so adding a product to the room grows the basket and
+   re-ranks every candidate by what has historically gone WITH that product
+   (e.g. the Oak/Linen Armchair pulls up the Linen Cushion Set; the Stone Vase
+   pulls up the Travertine Lamp). This is the PDF's item-item complementarity. */
+const PRODUCT_COOCCURRENCE = {
+  //   id1  id2  id3  id4  id5  id6  id7  id8  id9
+  1: {        4: 12,       6: 14, 7: 8,        9: 24 },   // Travertine Lamp
+  2: { 1: 6,        5: 14,        7: 20             },    // Brass Pendant
+  3: { 1: 8,               6: 16,       8: 30       },    // Oak & Linen Armchair
+  4: { 1: 14, 3: 9,        6: 18                    },    // Rattan Pendant
+  5: { 2: 8,               7: 12,              9: 16 },   // Ceramic Table Lamp
+  6: { 1: 12, 3: 20, 4: 10,                    9: 14 },   // Warm Oak Console
+  7: { 2: 9,        5: 12,                     9: 22 },   // Marble Sconce
+  8: { 3: 28, 5: 8                                  },    // Linen Cushion Set
+  9: { 1: 24,       6: 10, 7: 16                    }     // Matte Stone Vase
 };
 
-// Supplier clustering warning (step 2)
-const SAME_SUPPLIER_IDS = { 1: [1, 0, 3, 8], 2: [] }; // step index → product ids that are same supplier
+/* Collaborative (co-occurrence) score for a candidate against the CURRENT
+   project basket = chosen materials + products already placed.
+     Σ over chosen materials  of  material→candidate co-occurrence
+   + Σ over placed products   of  product →candidate co-occurrence            */
+function coOccurrenceScore(productId, palette, basketProducts = []){
+  let total = 0;
+  palette.forEach(name => {
+    const col = COOCCURRENCE[name];
+    if (col && col[productId]) total += col[productId];
+  });
+  basketProducts.forEach(pid => {
+    const col = PRODUCT_COOCCURRENCE[pid];
+    if (col && col[productId]) total += col[productId];
+  });
+  return total;
+}
 
+// Stage tuning constants (documented so a reader can map them to the PDF)
+const CONTENT_CUTOFF   = 0.50;   // Stage-1: "passes content" if cosine ≥ this
+const MMR_LAMBDA       = 0.70;   // Stage-3: λ in MMR (PDF uses 0.7)
+const CAP_PER_SUPPLIER = 2;      // Stage-3 business rule: max 2 items / supplier
+const TOP_N            = 5;       // Stage-3: size of the final curated list
+
+/* DEFAULT PALETTE — {Oak, Brass, Travertine}.
+   This is the PDF's canonical worked example, so the demo opens reproducing
+   its 0.88 / 0.87 numbers. The palette is fully dynamic: add/remove materials
+   via the palette bar and all three steps recompute live. */
+let PALETTE = ['Oak', 'Brass', 'Travertine'];
+
+const lookup = id => PRODUCTS.find(p => p.id === id);
+
+/* ─── STAGE 1 — Content retrieval ────────────────────────────────────────
+   profile = weighted SUM of the chosen materials' vectors (weights = 1),
+   then score every in-scope candidate by cosine(profile, product).
+   Returns [{id, score}] sorted by cosine desc, keeping only score ≥ cutoff.   */
+function buildProfile(palette){
+  const v = new Array(DIMS.length).fill(0);
+  palette.forEach(name => {
+    const m = MATERIALS[name];
+    if (!m) return;
+    for (let i = 0; i < v.length; i++) v[i] += m.vec[i];   // Σ w_m · vector(m)
+  });
+  return v;
+}
+function contentRetrieval(palette){
+  // STAGE 1 signal = MATERIALS ONLY. Placing/removing products has no effect
+  // here; this stage scores the whole catalogue on aesthetic fit to the palette.
+  const profile = buildProfile(palette);
+  return PRODUCTS
+    .map(p => ({ id: p.id, score: cosine(profile, p.vec) }))   // cosine to profile
+    .filter(r => r.score >= CONTENT_CUTOFF)                     // candidate funnel cut-off
+    .sort((a, b) => b.score - a.score);
+}
+
+/* ─── STAGE 2 — Collaborative ranking (item-item co-occurrence, unary) ────
+   Re-rank the Stage-1 shortlist by how often each candidate co-occurs with the
+   project's items in past projects. We blend the content relevance with the
+   normalised co-occurrence so that complementarity (e.g. travertine lamp seen
+   18× with a travertine table) can promote a near-tied content match — exactly
+   the PDF's "tie-breaker" between A (0.88) and C (0.87). Because the co-occurrence
+   is summed over the CHOSEN MATERIALS, adding a material re-weights every score.   */
+function collaborativeRank(shortlist, palette, basketProducts = []){
+  // STAGE 2 signal = MATERIALS + PLACED PRODUCTS (co-occurrence). Placed products
+  // are excluded as candidates (already chosen) and drive the re-rank of the rest.
+  // NO supplier/diversity balancing happens here — that is Stage 3's job.
+  const placed = new Set(basketProducts);
+  const candidates = shortlist.filter(r => !placed.has(r.id));           // exclude already-placed
+  const raw = candidates.map(r => coOccurrenceScore(r.id, palette, basketProducts));
+  const maxCo = Math.max(1, ...raw);
+  return candidates
+    .map((r, i) => {
+      const co = raw[i] / maxCo;                               // unary co-occurrence, normalised
+      const score = 0.5 * r.score + 0.5 * co;                  // content × complementarity
+      return { id: r.id, score, content: r.score, co };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+/* ─── STAGE 3 — Diversity re-rank (MMR) ──────────────────────────────────
+   MMR(item) = λ·relevance − (1−λ)·max cosine(item, already-selected).
+   Greedy Top-N with business caps: at most CAP_PER_SUPPLIER items per supplier
+   (this also caps the share of the most-popular supplier).                     */
+function diversityRerank(ranked, lambda = MMR_LAMBDA, capPerSupplier = CAP_PER_SUPPLIER){
+  const pool = ranked.slice();
+  const maxRel = Math.max(1e-9, ...pool.map(r => r.score));
+  const selected = [];
+  const supplierCount = {};
+
+  while (selected.length < TOP_N && pool.length) {
+    let best = null, bestVal = -Infinity, bestIdx = -1;
+    pool.forEach((r, idx) => {
+      const sup = lookup(r.id).supplier;
+      if ((supplierCount[sup] || 0) >= capPerSupplier) return;  // supplier fairness cap
+      const rel = r.score / maxRel;
+      const maxSim = selected.length
+        ? Math.max(...selected.map(s => cosine(lookup(r.id).vec, lookup(s.id).vec)))
+        : 0;
+      const mmr = lambda * rel - (1 - lambda) * maxSim;         // Maximal Marginal Relevance
+      if (mmr > bestVal) { bestVal = mmr; best = r; bestIdx = idx; }
+    });
+    if (!best) break;                                           // everything left is capped out
+    selected.push({ id: best.id, score: best.score });
+    supplierCount[lookup(best.id).supplier] = (supplierCount[lookup(best.id).supplier] || 0) + 1;
+    pool.splice(bestIdx, 1);
+  }
+  return selected;
+}
+
+/* ─── Run the whole pipeline for the current palette ─────────────────────
+   Produces the per-step product lists and the s1/s2/s3 percentages the UI
+   renders. Re-invoked whenever the palette changes.                          */
+/* Products the designer has already placed in the project (saved to the room).
+   They are excluded from the candidate lists and added to the Stage-2 basket. */
 const savedItems = new Set();
+
+let PIPELINE = { stage1: [], stage2: [], stage3: [], scores: {} };
+function runPipeline(){
+  const basketProducts = [...savedItems];
+  const stage1 = contentRetrieval(PALETTE);                             // materials only (products don't affect)
+  const stage2 = collaborativeRank(stage1, PALETTE, basketProducts);    // + placed products, no diversity
+  const stage3 = diversityRerank(stage2);                              // + MMR diversity & supplier caps
+
+  // Per-product percentage badges, keyed by stage (null = not present in stage)
+  const scores = {};
+  PRODUCTS.forEach(p => scores[p.id] = { s1: null, s2: null, s3: null });
+  stage1.forEach(r => scores[r.id].s1 = Math.round(100 * r.score));
+  stage2.forEach(r => scores[r.id].s2 = Math.round(100 * r.score));
+  stage3.forEach(r => scores[r.id].s3 = Math.round(100 * r.score));
+
+  PIPELINE = {
+    stage1: stage1.map(r => r.id),
+    stage2: stage2.map(r => r.id),
+    stage3: stage3.map(r => r.id),
+    scores
+  };
+}
+
 let currentTab = 0;
 
 /* ═══════════════════════════════════════════
@@ -551,59 +769,167 @@ function getMatchColor(pct) {
   return '#8FA0B0';
 }
 
+/* ═══════════════════════════════════════════
+   DYNAMIC PALETTE
+   Add / remove materials → recompute the whole pipeline live.
+═══════════════════════════════════════════ */
+function renderPalette() {
+  const wrap = document.getElementById('paletteChips');
+  let html = '';
+  PALETTE.forEach(name => {
+    const m = MATERIALS[name];
+    if (!m) return;
+    html += `
+      <div class="material-chip">
+        <div class="material-swatch" style="background:${m.swatch};"></div>
+        <div>
+          <div class="material-name">${name}</div>
+          <div class="material-tags">${m.tags}</div>
+        </div>
+        <span class="material-check">✓</span>
+        <span class="chip-remove" title="Remove" onclick="removeMaterial('${name}', event)">×</span>
+      </div>`;
+  });
+  // "+ Add material" with a pop-up library of materials not yet chosen
+  const available = Object.keys(MATERIALS).filter(n => !PALETTE.includes(n));
+  let menu = '';
+  if (available.length) {
+    available.forEach(n => {
+      const m = MATERIALS[n];
+      menu += `<div class="material-menu-item" onclick="addMaterial('${n}')">
+        <div class="material-swatch" style="background:${m.swatch};"></div>
+        <div><div class="material-name">${n}</div><div class="material-tags">${m.tags}</div></div>
+      </div>`;
+    });
+  } else {
+    menu = `<div class="material-menu-empty">All materials added</div>`;
+  }
+  html += `
+    <div class="add-wrap">
+      <button class="add-material" onclick="toggleMaterialMenu(event)">+ Add material</button>
+      <div class="material-menu" id="materialMenu">${menu}</div>
+    </div>`;
+  wrap.innerHTML = html;
+}
+
+function toggleMaterialMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('materialMenu');
+  if (menu) menu.classList.toggle('open');
+}
+// Close the menu when clicking elsewhere
+document.addEventListener('click', () => {
+  const menu = document.getElementById('materialMenu');
+  if (menu) menu.classList.remove('open');
+});
+
+function addMaterial(name) {
+  if (!MATERIALS[name] || PALETTE.includes(name)) return;
+  PALETTE.push(name);
+  recompute();
+}
+function removeMaterial(name, e) {
+  if (e) e.stopPropagation();
+  PALETTE = PALETTE.filter(n => n !== name);
+  recompute();
+}
+
+/* Re-run the engine and repaint everything that depends on the palette. */
+function recompute() {
+  runPipeline();
+  renderPalette();
+  renderTab();
+}
+
+// Map current tab → which pipeline stage list and score key drive the view
+function stageForTab(tab){
+  if (tab === 0) return { ids: PIPELINE.stage1, key: 's1' };
+  if (tab === 1) return { ids: PIPELINE.stage2, key: 's2' };
+  return { ids: PIPELINE.stage3, key: 's3' };
+}
+
+// Suppliers in the Stage-2 list that exceed the per-supplier cap (drives the
+// "Same Supplier" clustering warning — only shown when it actually happens).
+function clusteredSuppliers(){
+  const counts = {};
+  PIPELINE.stage2.forEach(id => {
+    const s = lookup(id).supplier;
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  return Object.entries(counts).filter(([, n]) => n > CAP_PER_SUPPLIER);
+}
+
 function renderTab() {
   const area = document.getElementById('contentArea');
-  const idxList = STEP_PRODUCTS[currentTab];
-  const matchKey = STEP_MATCHES[currentTab].key;
+  const { ids: idList, key: matchKey } = stageForTab(currentTab);
+  const scores = PIPELINE.scores;
 
   let html = '';
 
-  // Banners
+  // ── Banners (all numbers COMPUTED from the pipeline) ──
   if (currentTab === 0) {
+    const suppliers = new Set(idList.map(id => lookup(id).supplier)).size;
     html += `<div class="banner info" style="margin-bottom:10px;">
       <div class="banner-content">
         <span class="banner-type">Content</span>
-        All products with an Oak + Brass palette aesthetic (cosine similarity ≥ 0.70), sorted by match score. ${idxList.length} results from 5 suppliers.
+        Cosine similarity of every in-scope product to the <strong>${PALETTE.join(' + ')}</strong> profile (kept if cosine ≥ ${CONTENT_CUTOFF.toFixed(2)}), sorted by match. ${idList.length} results from ${suppliers} supplier${suppliers === 1 ? '' : 's'}.
       </div>
     </div>`;
   } else if (currentTab === 1) {
     html += `<div class="banner info" style="margin-bottom:8px;">
       <div class="banner-content">
         <span class="banner-type">Collaborative</span>
-        Re-ranked by co-occurrence — items that appear alongside similar palettes in past Atelier Norte projects. Supplier clustering may appear.
-      </div>
-    </div>
-    <div class="banner warn" style="margin-bottom:10px;">
-      <div class="banner-content">
-        ⚠ Supplier clustering detected — 3 of 7 results are from Aromas del Campo. Apply Step 3 to balance across suppliers.
+        Re-ranked by item–item co-occurrence — how often each candidate was specified alongside this project's basket (${PALETTE.length} material${PALETTE.length===1?'':'s'}${savedItems.size?` + ${savedItems.size} placed product${savedItems.size===1?'':'s'}`:''}) in past Atelier Norte projects.
       </div>
     </div>`;
+    // Supplier-clustering warning only if a supplier truly exceeds the cap
+    const clusters = clusteredSuppliers();
+    if (clusters.length) {
+      const [sup, n] = clusters[0];
+      html += `<div class="banner warn" style="margin-bottom:10px;">
+        <div class="banner-content">
+          ⚠ Supplier clustering detected — ${n} of ${idList.length} results are from ${sup}. Apply Step 3 to balance across suppliers.
+        </div>
+      </div>`;
+    }
   } else if (currentTab === 2) {
+    const distinct = new Set(idList.map(id => lookup(id).supplier)).size;
     html += `<div class="banner info" style="margin-bottom:8px;">
       <div class="banner-content">
         <span class="banner-type">MMR Diversity</span>
-        Maximal Marginal Relevance (λ=0.7) applied. Each slot maximises relevance while penalising redundancy — ${idxList.length} products across ${idxList.length} suppliers.
+        Maximal Marginal Relevance (λ=${MMR_LAMBDA}) applied. Each slot maximises relevance while penalising redundancy.
       </div>
     </div>
     <div class="banner success" style="margin-bottom:10px;">
       <div class="banner-content">
         <span class="banner-type">✓ Diversity applied</span>
-        (MMR λ=0.7) — ${idxList.length} products across ${idxList.length} different suppliers · max 2 items per supplier enforced
+        (MMR λ=${MMR_LAMBDA}) — ${idList.length} products across ${distinct} different supplier${distinct === 1 ? '' : 's'} · max ${CAP_PER_SUPPLIER} items per supplier enforced
       </div>
     </div>`;
   }
 
-  // Product grid
-  html += `<div class="product-grid">`;
-  const clusterIds = currentTab === 1 ? new Set([1, 4, 9]) : new Set(); // Aromas del Campo IDs in step2
+  if (!idList.length) {
+    html += `<div class="banner info"><div class="banner-content">No products pass this stage for the current palette. Add a material to widen the aesthetic profile.</div></div>`;
+    area.innerHTML = html;
+    document.getElementById('recCount').textContent = `0 results`;
+    return;
+  }
 
-  idxList.forEach(idx => {
-    const p = PRODUCTS[idx];
-    const match = p[matchKey];
-    if (match === null && currentTab !== 1) return;
+  // ── Product grid ──
+  html += `<div class="product-grid">`;
+  const clusterSet = new Set();
+  if (currentTab === 1) {
+    clusteredSuppliers().forEach(([sup]) => {
+      PIPELINE.stage2.forEach(id => { if (lookup(id).supplier === sup) clusterSet.add(id); });
+    });
+  }
+
+  idList.forEach(id => {
+    const p = lookup(id);
+    const match = scores[id][matchKey];
     const matchVal = match !== null ? match : 0;
     const isSaved = savedItems.has(p.id);
-    const isCluster = clusterIds.has(p.id) && currentTab === 1;
+    const isCluster = clusterSet.has(p.id);
     const isDiversity = currentTab === 2;
 
     html += `
@@ -639,7 +965,7 @@ function renderTab() {
   html += `</div>`;
 
   area.innerHTML = html;
-  document.getElementById('recCount').textContent = `${idxList.filter(i => PRODUCTS[i][matchKey] !== null || currentTab === 1).length} results`;
+  document.getElementById('recCount').textContent = `${idList.length} results`;
 }
 
 function getGradStops(id) {
@@ -714,7 +1040,8 @@ function toggleSave(id, e) {
   }
 
   updateSavedCount();
-  renderTab();
+  runPipeline();        // placing/removing a product changes the project basket →
+  renderTab();         // re-score (exclude already-chosen, re-rank by co-occurrence)
   updateRoomList();
 }
 
@@ -1035,7 +1362,9 @@ resize();
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
-renderTab();
+runPipeline();   // compute Stage 1/2/3 for the default palette
+renderPalette(); // build the dynamic material chips
+renderTab();     // paint the current step from computed data
 // Resize after fonts load
 setTimeout(resize, 200);
 </script>
