@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SourceMatch — AI Material Recommender for Interior Designers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:          #F3F5F8;
+      --bg-white:    #FFFFFF;
+      --border:      #D8E0E7;
+      --border-lt:   #EEF1F5;
+      --text:        #1A2332;
+      --text-2:      #4F6880;
+      --text-3:      #8FA0B0;
+      --accent:      #4A6B8A;
+      --accent-h:    #3A5A78;
+      --accent-lt:   #EEF3F7;
+      --blue-mid:    #9AAFC2;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-lt);
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 0 40px;
+      height: 62px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -0.3px;
+    }
+    .logo-mark {
+      width: 30px; height: 30px; background: var(--accent);
+      border-radius: 7px; display: flex; align-items: center;
+      justify-content: center; color: #fff; font-size: 11px; font-weight: 700;
+    }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a {
+      text-decoration: none; font-size: 13.5px; font-weight: 450;
+      color: var(--text-2); transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-login { font-weight: 500 !important; color: var(--text) !important; }
+    .nav-cta {
+      background: var(--accent) !important; color: #fff !important;
+      padding: 8px 18px; border-radius: 8px; font-weight: 600 !important;
+      font-size: 13.5px !important; transition: background 0.15s !important;
+    }
+    .nav-cta:hover { background: var(--accent-h) !important; }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 148px 40px 100px;
+      background: linear-gradient(180deg, #fff 0%, var(--bg) 100%);
+      text-align: center;
+    }
+    .hero-tag {
+      display: inline-block;
+      background: var(--accent-lt); color: var(--accent);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 4px 14px; font-size: 11.5px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: 54px; font-weight: 700; letter-spacing: -1.8px;
+      line-height: 1.1; max-width: 820px; margin: 0 auto 22px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--text-2); max-width: 580px;
+      margin: 0 auto 40px; font-weight: 400; line-height: 1.65;
+    }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      padding: 14px 28px; border-radius: 10px;
+      font-size: 14.5px; font-weight: 600; text-decoration: none;
+      transition: background 0.15s; display: inline-block;
+    }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline {
+      background: #fff; color: var(--text);
+      padding: 14px 28px; border-radius: 10px;
+      font-size: 14.5px; font-weight: 500; text-decoration: none;
+      border: 1px solid var(--border); transition: border-color 0.15s; display: inline-block;
+    }
+    .btn-outline:hover { border-color: var(--blue-mid); }
+    .hero-note { margin-top: 18px; font-size: 13px; color: var(--text-3); }
+
+    /* ── SECTION COMMON ── */
+    .section { padding: 88px 40px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .s-label {
+      font-size: 11.5px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent); margin-bottom: 10px;
+    }
+    .s-title {
+      font-size: 36px; font-weight: 700; letter-spacing: -0.9px;
+      line-height: 1.18; margin-bottom: 14px;
+    }
+    .s-sub {
+      font-size: 16.5px; color: var(--text-2); max-width: 540px;
+      line-height: 1.65; margin-bottom: 52px;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how { background: #fff; }
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .step-card {
+      padding: 32px; background: var(--bg);
+      border-radius: 16px; border: 1px solid var(--border-lt);
+    }
+    .step-num {
+      width: 36px; height: 36px; background: var(--accent); color: #fff;
+      border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; font-weight: 700;
+      margin-bottom: 22px;
+    }
+    .step-card h3 {
+      font-size: 17px; font-weight: 650; letter-spacing: -0.3px; margin-bottom: 10px;
+    }
+    .step-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; }
+    .step-chip {
+      display: inline-block; margin-top: 18px;
+      padding: 4px 10px; background: #fff; border: 1px solid var(--border);
+      border-radius: 20px; font-size: 11px; color: var(--text-3); font-weight: 500;
+    }
+
+    /* pipeline visual */
+    .pipeline-vis {
+      margin-top: 56px; padding: 32px; background: var(--bg);
+      border-radius: 16px; border: 1px solid var(--border-lt);
+      display: flex; align-items: center; gap: 0; overflow-x: auto;
+    }
+    .pipe-start {
+      padding: 14px 18px; border: 1px solid var(--border);
+      border-radius: 10px; background: #fff; font-size: 13px;
+      font-weight: 600; color: var(--text); white-space: nowrap;
+    }
+    .pipe-arrow {
+      color: var(--text-3); font-size: 18px; margin: 0 14px; flex-shrink: 0;
+    }
+    .pipe-step {
+      padding: 18px 22px; border-radius: 12px; text-align: center;
+      min-width: 140px; flex-shrink: 0;
+    }
+    .pipe-step.s1 { background: #2D3A5C; }
+    .pipe-step.s2 { background: #4B5DBF; }
+    .pipe-step.s3 { background: #3A7068; }
+    .pipe-step .ps-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+      color: rgba(255,255,255,0.65); font-weight: 600; margin-bottom: 6px;
+    }
+    .pipe-step .ps-name {
+      font-size: 14px; font-weight: 700; color: #fff; line-height: 1.3;
+    }
+    .pipe-step .ps-sub {
+      font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px;
+      font-style: italic;
+    }
+    .pipe-step .ps-desc {
+      font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 6px;
+    }
+    .pipe-end {
+      font-size: 16px; font-weight: 700; color: var(--accent);
+      margin-left: 14px; white-space: nowrap;
+    }
+    .pipe-logic {
+      margin-top: 20px; padding: 18px 24px;
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 12px; font-size: 13.5px; color: var(--text-2); line-height: 1.6;
+    }
+    .pipe-logic strong { color: var(--text); }
+
+    /* ── OFFERINGS ── */
+    .offerings { background: var(--bg); }
+    .offerings-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    }
+    .off-card {
+      background: #fff; border-radius: 14px;
+      border: 1px solid var(--border-lt); padding: 28px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .off-card:hover {
+      border-color: var(--blue-mid);
+      box-shadow: 0 4px 20px rgba(74,107,138,0.08);
+    }
+    .off-icon {
+      width: 44px; height: 44px; background: var(--accent-lt);
+      border-radius: 10px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .off-card h3 {
+      font-size: 15px; font-weight: 650; margin-bottom: 8px; letter-spacing: -0.2px;
+    }
+    .off-card p { font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
+
+    /* ── PRICING ── */
+    .pricing { background: #fff; }
+    .pricing-header { text-align: center; margin-bottom: 52px; }
+    .pricing-header .s-sub { margin: 14px auto 0; }
+
+    .trial-box {
+      max-width: 820px; margin: 0 auto 48px;
+      padding: 28px 36px; background: linear-gradient(135deg, #EEF3F7, #E5EDF5);
+      border: 1px solid var(--border); border-radius: 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .trial-badge {
+      width: 60px; height: 60px; background: var(--accent); color: #fff;
+      border-radius: 50%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .trial-badge .trial-days { font-size: 20px; font-weight: 700; line-height: 1; }
+    .trial-badge .trial-unit { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .trial-info h3 { font-size: 18px; font-weight: 650; margin-bottom: 6px; }
+    .trial-info p { font-size: 14px; color: var(--text-2); }
+    .trial-box .btn-primary { flex-shrink: 0; }
+
+    .plans-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 20px; max-width: 920px; margin: 0 auto;
+    }
+    .plan-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 18px; padding: 30px; display: flex;
+      flex-direction: column;
+    }
+    .plan-card.featured {
+      background: var(--accent); border-color: var(--accent);
+    }
+    .plan-tier {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-3); margin-bottom: 6px;
+    }
+    .plan-card.featured .plan-tier { color: rgba(255,255,255,0.6); }
+    .plan-name { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    .plan-card.featured .plan-name { color: #fff; }
+    .plan-for {
+      font-size: 13px; color: var(--text-2); margin-bottom: 24px; line-height: 1.5;
+    }
+    .plan-card.featured .plan-for { color: rgba(255,255,255,0.75); }
+    .plan-feats { list-style: none; margin-bottom: 28px; flex: 1; }
+    .plan-feats li {
+      font-size: 13px; padding: 6px 0; color: var(--text-2);
+      display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;
+    }
+    .plan-card.featured .plan-feats li { color: rgba(255,255,255,0.85); }
+    .plan-feats li::before {
+      content: '✓'; font-weight: 800; color: var(--accent);
+      font-size: 12px; margin-top: 1px; flex-shrink: 0;
+    }
+    .plan-card.featured .plan-feats li::before { color: rgba(255,255,255,0.9); }
+    .plan-cta-btn {
+      display: block; padding: 11px 24px; border-radius: 9px;
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      text-align: center; background: var(--accent); color: #fff;
+      transition: opacity 0.15s;
+    }
+    .plan-card.featured .plan-cta-btn { background: #fff; color: var(--accent); }
+    .plan-cta-btn:hover { opacity: 0.88; }
+    .plan-note {
+      font-size: 12px; color: var(--text-3); text-align: center; margin-top: 10px;
+    }
+    .plan-card.featured .plan-note { color: rgba(255,255,255,0.55); }
+
+    /* ── CTA ── */
+    .cta { background: var(--bg); text-align: center; padding: 88px 40px; }
+    .cta h2 {
+      font-size: 40px; font-weight: 700; letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .cta p {
+      font-size: 16.5px; color: var(--text-2); max-width: 480px;
+      margin: 0 auto 36px; line-height: 1.65;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--text); padding: 44px 40px;
+      text-align: center;
+    }
+    .footer-logo {
+      font-size: 16px; font-weight: 700; color: #fff;
+      display: flex; align-items: center; gap: 8px;
+      justify-content: center; margin-bottom: 14px;
+    }
+    .footer-logo .logo-mark { background: rgba(255,255,255,0.15); }
+    footer p {
+      font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.7;
+    }
+    footer a { color: rgba(255,255,255,0.55); text-decoration: none; }
+    footer a:hover { color: rgba(255,255,255,0.8); }
+
+    @media (max-width: 900px) {
+      .hero h1 { font-size: 36px; }
+      .steps-grid, .offerings-grid, .plans-grid { grid-template-columns: 1fr; }
+      .trial-box { flex-direction: column; text-align: center; }
+      .pipeline-vis { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="logo-mark">SM</div>
+      SourceMatch
+    </a>
+    <div class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#offerings">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="app.html" class="nav-login">Login</a>
+      <a href="app.html" class="nav-cta">Start free trial</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-tag">AI-Powered Interior Design Recommendations</div>
+    <h1>Source the <em>perfect</em> furniture<br>for every project</h1>
+    <p class="hero-sub">
+      SourceMatch helps interior designers discover furniture and materials that fit their aesthetic, match their studio's project history, and balance supplier diversity — all in seconds.
+    </p>
+    <div class="hero-btns">
+      <a href="app.html" class="btn-primary">Try the live demo</a>
+      <a href="#how-it-works" class="btn-outline">How it works</a>
+    </div>
+    <p class="hero-note">7-day free trial &nbsp;·&nbsp; No credit card required &nbsp;·&nbsp; Full feature access</p>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section how" id="how-it-works">
+  <div class="container">
+    <div class="s-label">The Pipeline</div>
+    <h2 class="s-title">Retrieve → Rank → Diversify</h2>
+    <p class="s-sub">No single algorithm can do everything. We split the job into three stages, each covering the previous one's blind spot.</p>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>Define Your Material Palette</h3>
+        <p>Tell us what aesthetic you're going for. Add materials like Oak, Brass, or Marble to build your project palette. SourceMatch creates a rich profile of your creative vision and retrieves every product that fits.</p>
+        <span class="step-chip">Content-based retrieval · Cosine similarity on material profile</span>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>AI Learns What Works Together</h3>
+        <p>Our collaborative ranking engine re-orders results based on what has actually worked together in past projects at your studio — surfacing furniture proven to co-exist beautifully in real interiors.</p>
+        <span class="step-chip">Collaborative ranking · Co-occurrence from past projects</span>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>Curated, Diverse Discoveries</h3>
+        <p>The diversity re-ranking stage stops popular items from crowding out fresh discoveries. No single supplier dominates — you get the best mix of relevance and breadth, every time.</p>
+        <span class="step-chip">Diversity re-rank · MMR λ=0.7 · Supplier fairness caps</span>
+      </div>
+    </div>
+
+    <div class="pipeline-vis">
+      <div class="pipe-start">Chosen materials</div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step s1">
+        <div class="ps-label">Step 1</div>
+        <div class="ps-name">Content-based retrieval</div>
+        <div class="ps-sub">"fits the palette"</div>
+        <div class="ps-desc">cosine on the material profile</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step s2">
+        <div class="ps-label">Step 2</div>
+        <div class="ps-name">Collaborative ranking</div>
+        <div class="ps-sub">"goes together"</div>
+        <div class="ps-desc">co-occurrence from past projects</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step s3">
+        <div class="ps-label">Step 3</div>
+        <div class="ps-name">Diversity re-rank</div>
+        <div class="ps-sub">"beyond the usual"</div>
+        <div class="ps-desc">coverage &amp; supplier fairness</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-end">Top-N</div>
+    </div>
+    <div class="pipe-logic">
+      <strong>The logic:</strong> Content retrieval finds products that match the chosen materials. Collaborative ranking reorders them by what has actually worked together in past projects. Diversity re-rank stops popular items crowding out the discovery we promise.
+    </div>
+  </div>
+</section>
+
+<!-- OFFERINGS -->
+<section class="section offerings" id="offerings">
+  <div class="container">
+    <div class="s-label">Features</div>
+    <h2 class="s-title">Everything a design studio needs</h2>
+    <p class="s-sub">From first inspiration to final sourcing — SourceMatch covers the whole material discovery workflow.</p>
+
+    <div class="offerings-grid">
+      <div class="off-card">
+        <div class="off-icon">🎨</div>
+        <h3>Material Palette Builder</h3>
+        <p>Build rich material profiles per project — Oak, Brass, Marble, Linen. Each material carries texture, finish, and aesthetic attributes that power the recommendation engine.</p>
+      </div>
+      <div class="off-card">
+        <div class="off-icon">⚡</div>
+        <h3>3-Stage AI Pipeline</h3>
+        <p>Our proprietary Retrieve → Rank → Diversify pipeline delivers results that are aesthetically coherent, contextually relevant, and supplier-balanced in a single pass.</p>
+      </div>
+      <div class="off-card">
+        <div class="off-icon">🏠</div>
+        <h3>3D Room Visualizer</h3>
+        <p>See recommended pieces come to life in a real-time 3D room preview. Save items from the recommendation board and watch the room compose itself around your selections.</p>
+      </div>
+      <div class="off-card">
+        <div class="off-icon">⚖️</div>
+        <h3>Supplier Diversity Engine</h3>
+        <p>Our MMR-based diversity controls prevent any single supplier from dominating your results. Automatically surface products from a balanced mix of partners and independents.</p>
+      </div>
+      <div class="off-card">
+        <div class="off-icon">📋</div>
+        <h3>Project Board & Collaboration</h3>
+        <p>Save items to a shared project board, annotate selections, and present curated shortlists to clients. Works seamlessly across your studio team with real-time sync.</p>
+      </div>
+      <div class="off-card">
+        <div class="off-icon">📚</div>
+        <h3>Supplier Directory Integration</h3>
+        <p>Access product catalogues from leading suppliers — Flos, Menu, HAY, &Tradition, Aromas del Campo, and more. Request quotes and availability directly through the platform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section pricing" id="pricing">
+  <div class="container">
+    <div class="pricing-header">
+      <div class="s-label">Pricing</div>
+      <h2 class="s-title">Start free, grow with your studio</h2>
+      <p class="s-sub">Every plan includes the full recommendation pipeline. Pricing is tailored to your team size and project volume.</p>
+    </div>
+
+    <div class="trial-box">
+      <div class="trial-badge">
+        <div class="trial-days">7</div>
+        <div class="trial-unit">days</div>
+      </div>
+      <div class="trial-info">
+        <h3>Free Trial — Full Access, No Limits</h3>
+        <p>Try SourceMatch for 7 days with complete access to all Professional plan features. No credit card required. No commitment.</p>
+      </div>
+      <a href="app.html" class="btn-primary">Start free trial</a>
+    </div>
+
+    <div class="plans-grid">
+      <div class="plan-card">
+        <div class="plan-tier">Studio</div>
+        <div class="plan-name">Studio</div>
+        <div class="plan-for">For small studios and independent designers just getting started with AI sourcing.</div>
+        <ul class="plan-feats">
+          <li>Up to 3 active projects</li>
+          <li>Material palette builder</li>
+          <li>Content-based recommendations</li>
+          <li>Basic project board</li>
+          <li>1–3 users</li>
+        </ul>
+        <a href="#" class="plan-cta-btn">Reach out for more information</a>
+        <p class="plan-note">Contact us for pricing</p>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-tier">Most Popular</div>
+        <div class="plan-name">Professional</div>
+        <div class="plan-for">For growing firms that need the full pipeline, room visualizer, and team collaboration.</div>
+        <ul class="plan-feats">
+          <li>Unlimited projects</li>
+          <li>Full 3-stage AI pipeline</li>
+          <li>3D Room Visualizer</li>
+          <li>Collaborative ranking (project history)</li>
+          <li>Supplier diversity controls</li>
+          <li>Team collaboration (up to 15 users)</li>
+        </ul>
+        <a href="#" class="plan-cta-btn">Reach out for more information</a>
+        <p class="plan-note">Contact us for pricing</p>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-tier">Enterprise</div>
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-for">For large companies, franchise networks, and firms needing custom integrations.</div>
+        <ul class="plan-feats">
+          <li>Everything in Professional</li>
+          <li>Custom supplier catalogue</li>
+          <li>White-label option</li>
+          <li>API access</li>
+          <li>Dedicated success manager</li>
+          <li>Unlimited users &amp; projects</li>
+        </ul>
+        <a href="#" class="plan-cta-btn">Reach out for more information</a>
+        <p class="plan-note">Tailored to your organisation</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta">
+  <div class="container">
+    <h2>Ready to find the perfect piece?</h2>
+    <p>Start your 7-day free trial today. No credit card, no commitment — just better sourcing from day one.</p>
+    <div class="hero-btns" style="justify-content:center;">
+      <a href="app.html" class="btn-primary">Try the live demo</a>
+      <a href="#" class="btn-outline">Get in touch</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="logo-mark">SM</div>
+    SourceMatch
+  </div>
+  <p>
+    AI-powered material and furniture recommendations for interior designers.<br>
+    &copy; 2025 SourceMatch &nbsp;·&nbsp;
+    <a href="#">Privacy</a> &nbsp;·&nbsp;
+    <a href="#">Terms</a> &nbsp;·&nbsp;
+    <a href="#">Contact</a>
+  </p>
+</footer>
+
+</body>
+</html>

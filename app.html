@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SourceMatch — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:       #F3F5F8;
+      --bg-white: #FFFFFF;
+      --border:   #D8E0E7;
+      --border-lt:#EEF1F5;
+      --text:     #1A2332;
+      --text-2:   #4F6880;
+      --text-3:   #8FA0B0;
+      --accent:   #4A6B8A;
+      --accent-h: #3A5A78;
+      --accent-lt:#EEF3F7;
+      --sidebar-w: 190px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── TOP NAV ── */
+    .topnav {
+      height: 50px; background: #fff; border-bottom: 1px solid var(--border-lt);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; flex-shrink: 0; z-index: 10;
+    }
+    .topnav-left { display: flex; align-items: center; gap: 14px; }
+    .topnav-logo { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text); text-decoration: none; }
+    .logo-mark { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 700; }
+    .logo-sub { font-size: 10px; color: var(--text-3); font-weight: 500; }
+    .topnav-breadcrumb { font-size: 12.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+    .topnav-breadcrumb a { color: var(--text-2); text-decoration: none; }
+    .topnav-breadcrumb a:hover { color: var(--text); }
+    .topnav-breadcrumb .sep { color: var(--border); }
+    .topnav-breadcrumb .cur { color: var(--text); font-weight: 500; }
+    .topnav-right { display: flex; align-items: center; gap: 8px; }
+    .nav-tab {
+      padding: 6px 14px; border-radius: 7px; font-size: 12.5px;
+      font-weight: 500; cursor: pointer; text-decoration: none;
+      color: var(--text-2); border: 1px solid var(--border); background: #fff;
+      transition: all 0.15s;
+    }
+    .nav-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .nav-saved { font-size: 12.5px; color: var(--text-3); }
+    .nav-btn {
+      padding: 6px 14px; background: var(--accent); color: #fff;
+      border-radius: 7px; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; border: none; transition: background 0.15s;
+    }
+    .nav-btn:hover { background: var(--accent-h); }
+    .home-link {
+      padding: 6px 14px; font-size: 12.5px; color: var(--text-2);
+      text-decoration: none; border-radius: 7px; border: 1px solid var(--border);
+    }
+    .home-link:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── BODY LAYOUT ── */
+    .app-body {
+      flex: 1; display: flex; overflow: hidden; min-height: 0;
+    }
+
+    /* ── LEFT PANEL (50%) ── */
+    .left-panel {
+      width: 50%; display: flex; border-right: 1px solid var(--border);
+      overflow: hidden; background: var(--bg-white);
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--border-lt);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+      padding: 18px 16px;
+    }
+    .sb-section { margin-bottom: 24px; }
+    .sb-label {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: var(--text-3); margin-bottom: 10px;
+    }
+    .sb-project-name { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .sb-project-meta { font-size: 11.5px; color: var(--text-3); margin-bottom: 6px; }
+    .sb-status { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-2); }
+    .sb-dot { width: 6px; height: 6px; border-radius: 50%; background: #48C774; }
+    .pipe-step-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; cursor: pointer; transition: opacity 0.15s;
+    }
+    .pipe-step-item:hover { opacity: 0.75; }
+    .pipe-dot-wrap { display: flex; flex-direction: column; align-items: center; padding-top: 2px; }
+    .pipe-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--border); background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s;
+    }
+    .pipe-dot.active { border-color: var(--accent); background: var(--accent); }
+    .pipe-dot.done { border-color: var(--accent); background: var(--accent); }
+    .pipe-dot-inner { width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+    .pipe-line { width: 2px; height: 24px; background: var(--border-lt); margin: 3px 0; }
+    .pipe-line.done { background: var(--accent); opacity: 0.4; }
+    .pipe-text { flex: 1; }
+    .pipe-title { font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .pipe-desc { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+    .pipe-step-item.active .pipe-title { color: var(--accent); }
+    .pipe-step-item.active .pipe-desc { color: var(--text-2); }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+
+    /* PALETTE BAR */
+    .palette-bar {
+      padding: 14px 18px; border-bottom: 1px solid var(--border-lt);
+      background: #fff; flex-shrink: 0;
+    }
+    .palette-title {
+      font-size: 12.5px; font-weight: 700; color: var(--text);
+      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .palette-project { font-size: 11px; color: var(--text-3); font-weight: 400; }
+    .palette-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .material-chip {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 10px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 12px;
+    }
+    .material-swatch { width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; }
+    .material-name { font-weight: 600; color: var(--text); }
+    .material-tags { font-size: 10.5px; color: var(--text-3); }
+    .material-check { color: #48C774; font-size: 13px; margin-left: 2px; }
+    .add-material {
+      padding: 6px 12px; background: transparent; border: 1px dashed var(--border);
+      border-radius: 8px; font-size: 12px; color: var(--text-3);
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      transition: all 0.15s;
+    }
+    .add-material:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* STEP TABS */
+    .step-tabs {
+      padding: 12px 18px 0; border-bottom: 1px solid var(--border-lt);
+      background: #fff; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .rec-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .rec-count { font-size: 12px; font-weight: 500; color: var(--text-3); background: var(--bg); padding: 2px 8px; border-radius: 12px; }
+    .tabs { display: flex; gap: 4px; padding-bottom: 1px; }
+    .tab-btn {
+      padding: 6px 12px; border-radius: 7px 7px 0 0; border: 1px solid transparent;
+      border-bottom: none; font-size: 12px; font-weight: 500; cursor: pointer;
+      color: var(--text-3); background: transparent; transition: all 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+
+    /* CONTENT AREA */
+    .content-area {
+      flex: 1; overflow-y: auto; padding: 14px 16px;
+      background: var(--bg);
+    }
+
+    /* BANNERS */
+    .banner {
+      margin-bottom: 10px; padding: 9px 14px;
+      border-radius: 8px; font-size: 12px; line-height: 1.5;
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .banner-content { display: inline; }
+    .banner-type {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 2px 7px; border-radius: 4px;
+      margin-right: 6px;
+    }
+    .banner.info { background: #EEF3F7; border: 1px solid #D0DDE8; color: var(--text-2); }
+    .banner.info .banner-type { background: var(--accent); color: #fff; }
+    .banner.warn { background: #FFFBEC; border: 1px solid #F5DFA0; color: #7A6010; }
+    .banner.warn .banner-type { background: #F5DFA0; color: #7A6010; }
+    .banner.success { background: #EDFBF0; border: 1px solid #A0E0B0; color: #1A5A2A; }
+    .banner.success .banner-type { background: #48C774; color: #fff; }
+
+    /* PRODUCT GRID */
+    .product-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .product-card {
+      background: #fff; border-radius: 12px; border: 1px solid var(--border-lt);
+      overflow: hidden; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .product-card:hover { border-color: var(--border); box-shadow: 0 2px 12px rgba(26,35,50,0.07); }
+    .product-card.saved { border-color: var(--accent); border-width: 2px; }
+    .product-img {
+      height: 110px; position: relative; overflow: hidden;
+    }
+    .product-img-bg { width: 100%; height: 100%; }
+    .match-badge {
+      position: absolute; bottom: 8px; left: 8px;
+      background: rgba(26,35,50,0.82); color: #fff;
+      font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 5px;
+    }
+    .supplier-badge {
+      position: absolute; top: 8px; left: 8px;
+      background: #F59E0B; color: #fff;
+      font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .supplier-badge.diversity { background: #48C774; }
+    .save-btn {
+      position: absolute; top: 8px; right: 8px;
+      width: 26px; height: 26px; background: rgba(255,255,255,0.92);
+      border: 1px solid var(--border); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; cursor: pointer; transition: all 0.15s;
+    }
+    .save-btn:hover { background: #fff; border-color: var(--accent); }
+    .save-btn.saved { background: var(--accent); border-color: var(--accent); }
+    .product-info { padding: 10px 12px 12px; }
+    .product-cat {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-3); margin-bottom: 3px;
+    }
+    .product-name { font-size: 13px; font-weight: 650; color: var(--text); margin-bottom: 2px; }
+    .product-supplier { font-size: 11.5px; color: var(--accent); margin-bottom: 6px; }
+    .product-price { font-size: 13px; font-weight: 600; color: var(--text); }
+    .product-bar {
+      height: 2px; background: var(--border-lt); margin-top: 10px; border-radius: 1px;
+    }
+    .product-bar-fill { height: 100%; border-radius: 1px; transition: width 0.4s; }
+
+    /* ── RIGHT PANEL (50%) ── */
+    .right-panel {
+      width: 50%; position: relative; background: #F0EDE8; overflow: hidden;
+    }
+    #roomCanvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .room-overlay {
+      position: absolute; top: 16px; left: 16px; right: 16px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      pointer-events: none;
+    }
+    .room-label {
+      background: rgba(255,255,255,0.9); backdrop-filter: blur(8px);
+      border: 1px solid rgba(216,224,231,0.8); border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .room-label-title { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .room-label-sub { font-size: 10.5px; color: var(--text-3); }
+
+    .room-items-list {
+      background: rgba(255,255,255,0.9); backdrop-filter: blur(8px);
+      border: 1px solid rgba(216,224,231,0.8); border-radius: 10px;
+      padding: 10px 14px; max-width: 180px;
+    }
+    .room-items-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-3); margin-bottom: 8px; }
+    .room-items-empty { font-size: 11px; color: var(--text-3); font-style: italic; }
+    .room-item-entry {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text); margin-bottom: 4px;
+      animation: fadeSlide 0.3s ease;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateX(8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .room-item-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    .room-hint {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);
+      border: 1px solid rgba(216,224,231,0.7); border-radius: 20px;
+      padding: 6px 16px; font-size: 11px; color: var(--text-3); white-space: nowrap;
+    }
+
+    /* Scrollbar */
+    .content-area::-webkit-scrollbar { width: 4px; }
+    .content-area::-webkit-scrollbar-track { background: transparent; }
+    .content-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border-lt); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <div class="topnav-left">
+    <a href="index.html" class="topnav-logo">
+      <div class="logo-mark">SM</div>
+      <div>
+        <div>SourceMatch</div>
+        <div class="logo-sub">PRO · ATELIER NORTE</div>
+      </div>
+    </a>
+    <div class="topnav-breadcrumb">
+      <a href="#">Projects</a>
+      <span class="sep">/</span>
+      <a href="#">Martinez Residence</a>
+      <span class="sep">/</span>
+      <span class="cur">Recommendations</span>
+    </div>
+  </div>
+  <div class="topnav-right">
+    <button class="nav-tab active" onclick="setView('palette')">Material Palette</button>
+    <button class="nav-tab" onclick="setView('room')">Room Builder</button>
+    <span class="nav-saved" id="savedCount">0 saved to board</span>
+    <button class="nav-btn">View board</button>
+    <a href="index.html" class="home-link">← Home</a>
+  </div>
+</div>
+
+<!-- APP BODY -->
+<div class="app-body">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sb-section">
+        <div class="sb-label">Active Project</div>
+        <div class="sb-project-name">Martinez Residence</div>
+        <div class="sb-project-meta">Living Room · Phase 2</div>
+        <div class="sb-status"><span class="sb-dot"></span> Material specification</div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-label">Recommendation Pipeline</div>
+        <div class="pipe-step-item active" id="ps0" onclick="setTab(0)">
+          <div class="pipe-dot-wrap">
+            <div class="pipe-dot active"><div class="pipe-dot-inner"></div></div>
+            <div class="pipe-line"></div>
+          </div>
+          <div class="pipe-text">
+            <div class="pipe-title">Content retrieval</div>
+            <div class="pipe-desc">Cosine similarity on material profile</div>
+          </div>
+        </div>
+        <div class="pipe-step-item" id="ps1" onclick="setTab(1)">
+          <div class="pipe-dot-wrap">
+            <div class="pipe-dot" id="pd1"></div>
+            <div class="pipe-line" id="pl1"></div>
+          </div>
+          <div class="pipe-text">
+            <div class="pipe-title">Collaborative ranking</div>
+            <div class="pipe-desc">Co-occurrence from past projects</div>
+          </div>
+        </div>
+        <div class="pipe-step-item" id="ps2" onclick="setTab(2)">
+          <div class="pipe-dot-wrap">
+            <div class="pipe-dot" id="pd2"></div>
+          </div>
+          <div class="pipe-text">
+            <div class="pipe-title">Diversity re-rank</div>
+            <div class="pipe-desc">MMR · supplier fairness caps</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-label">Saved Items</div>
+        <div id="sb-saved-list" style="font-size:11.5px; color: var(--text-3); font-style:italic;">
+          Nothing saved yet
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+      <!-- PALETTE BAR -->
+      <div class="palette-bar">
+        <div class="palette-title">
+          Your material palette
+          <span class="palette-project">Martinez Residence — Living Room</span>
+        </div>
+        <div class="palette-chips">
+          <div class="material-chip">
+            <div class="material-swatch" style="background: linear-gradient(135deg,#C8A870,#8B6540);"></div>
+            <div>
+              <div class="material-name">Oak</div>
+              <div class="material-tags">Warm wood · Matte · Minimal</div>
+            </div>
+            <span class="material-check">✓</span>
+          </div>
+          <div class="material-chip">
+            <div class="material-swatch" style="background: linear-gradient(135deg,#D4B840,#8B7020);"></div>
+            <div>
+              <div class="material-name">Brass</div>
+              <div class="material-tags">Metallic · Minimal</div>
+            </div>
+            <span class="material-check">✓</span>
+          </div>
+          <button class="add-material">+ Add material</button>
+        </div>
+      </div>
+
+      <!-- STEP TABS -->
+      <div class="step-tabs">
+        <div class="rec-title">
+          Recommendations
+          <span class="rec-count" id="recCount">8 results</span>
+        </div>
+        <div class="tabs">
+          <button class="tab-btn active" id="tab0" onclick="setTab(0)">Step 1: Content Match</button>
+          <button class="tab-btn" id="tab1" onclick="setTab(1)">Step 2: Project Fit</button>
+          <button class="tab-btn" id="tab2" onclick="setTab(2)">Step 3: Curated</button>
+        </div>
+      </div>
+
+      <!-- CONTENT AREA -->
+      <div class="content-area" id="contentArea">
+        <!-- Dynamically rendered -->
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /left-panel -->
+
+  <!-- RIGHT PANEL: 3D ROOM -->
+  <div class="right-panel" id="rightPanel">
+    <canvas id="roomCanvas"></canvas>
+
+    <div class="room-overlay">
+      <div class="room-label">
+        <div class="room-label-title">Martinez Residence — Living Room</div>
+        <div class="room-label-sub">Save items from the left panel to furnish this room</div>
+      </div>
+      <div class="room-items-list">
+        <div class="room-items-title">In this room</div>
+        <div id="roomItemsList"><div class="room-items-empty">Empty room</div></div>
+      </div>
+    </div>
+
+    <div class="room-hint">Click ♡ on any product card to add it to the room</div>
+  </div>
+
+</div><!-- /app-body -->
+
+<script>
+/* ═══════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════ */
+const PRODUCTS = [
+  {
+    id: 1, cat: 'LIGHTING', name: 'Travertine Floor Lamp', supplier: 'Aromas del Campo', price: '€380–520',
+    s1: 91, s2: 82, s3: 96,
+    grad: 'linear-gradient(135deg,#D4C4A0 0%,#9A8060 50%,#E8DDD0 100%)',
+    color: '#C8A878',
+    room: { type: 'floorLamp', x: 1.9, z: -2.2 }
+  },
+  {
+    id: 2, cat: 'LIGHTING', name: 'Brass Pendant Cluster', supplier: 'Flos', price: '€620–840',
+    s1: 88, s2: 29, s3: 68,
+    grad: 'linear-gradient(135deg,#C8A840 0%,#7A5018 50%,#EAC860 100%)',
+    color: '#C4A842',
+    room: { type: 'pendant', x: -0.2, z: -1.0 }
+  },
+  {
+    id: 3, cat: 'SEATING', name: 'Oak & Linen Armchair', supplier: 'Menu', price: '€1,200',
+    s1: 86, s2: 61, s3: 86,
+    grad: 'linear-gradient(135deg,#D4C09A 0%,#F2EBD8 60%,#C8A878 100%)',
+    color: '#C4A882',
+    room: { type: 'armchair', x: -1.0, z: 0.4 }
+  },
+  {
+    id: 4, cat: 'LIGHTING', name: 'Rattan Pendant', supplier: 'Aromas del Campo', price: '€240–380',
+    s1: 83, s2: 74, s3: null,
+    grad: 'linear-gradient(135deg,#806040 0%,#C09060 50%,#ECC890 100%)',
+    color: '#A08055',
+    room: { type: 'pendant', x: 1.0, z: -0.5 }
+  },
+  {
+    id: 5, cat: 'LIGHTING', name: 'Ceramic Table Lamp', supplier: '&Tradition', price: '€290–440',
+    s1: 79, s2: null, s3: 79,
+    grad: 'linear-gradient(135deg,#F0EDE8 0%,#D8D4CE 50%,#B8B0A8 100%)',
+    color: '#E0D5C8',
+    room: { type: 'tableLamp', x: 1.0, z: -3.0 }
+  },
+  {
+    id: 6, cat: 'TABLES', name: 'Warm Oak Console', supplier: 'Menu', price: '€890',
+    s1: 77, s2: 48, s3: null,
+    grad: 'linear-gradient(135deg,#6B4830 0%,#9B6840 50%,#C89060 100%)',
+    color: '#8B6B4A',
+    room: { type: 'console', x: 0.5, z: -3.2 }
+  },
+  {
+    id: 7, cat: 'LIGHTING', name: 'Marble Sconce', supplier: 'Flos', price: '€460–680',
+    s1: 74, s2: 17, s3: null,
+    grad: 'linear-gradient(135deg,#F0EDE8 0%,#D8D0C8 40%,#C0B8B0 100%)',
+    color: '#E0D8D0',
+    room: { type: 'sconce', x: -3.8, z: -1.2 }
+  },
+  {
+    id: 8, cat: 'TEXTILES', name: 'Linen Cushion Set', supplier: 'HAY', price: '€85–120',
+    s1: 71, s2: null, s3: 71,
+    grad: 'linear-gradient(135deg,#E2D8C8 0%,#C8BEA8 50%,#F0EAE0 100%)',
+    color: '#C8B898',
+    room: { type: 'cushions', x: -1.0, z: 0.4 }
+  },
+  {
+    id: 9, cat: 'DECOR', name: 'Matte Stone Vase', supplier: 'Aromas del Campo', price: '€145–200',
+    s1: null, s2: 68, s3: null,
+    grad: 'linear-gradient(135deg,#A8A0A0 0%,#787070 50%,#D0C8C0 100%)',
+    color: '#9E9E9E',
+    room: { type: 'vase', x: 0.1, z: -3.2 }
+  }
+];
+
+// Which products appear in each step (indices into PRODUCTS array)
+const STEP_PRODUCTS = {
+  0: [0, 1, 2, 3, 4, 5, 6, 7], // step 1 - 8 products
+  1: [0, 3, 8, 2, 5, 1, 6],    // step 2 - 7 products, reordered
+  2: [0, 2, 4, 7, 1]            // step 3 - 5 products
+};
+
+const STEP_MATCHES = {
+  0: { key: 's1' },
+  1: { key: 's2' },
+  2: { key: 's3' }
+};
+
+// Supplier clustering warning (step 2)
+const SAME_SUPPLIER_IDS = { 1: [1, 0, 3, 8], 2: [] }; // step index → product ids that are same supplier
+
+const savedItems = new Set();
+let currentTab = 0;
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function getMatchColor(pct) {
+  if (pct === null) return '#EEF1F5';
+  if (pct >= 80) return '#3A7068';
+  if (pct >= 60) return '#4B5DBF';
+  return '#8FA0B0';
+}
+
+function renderTab() {
+  const area = document.getElementById('contentArea');
+  const idxList = STEP_PRODUCTS[currentTab];
+  const matchKey = STEP_MATCHES[currentTab].key;
+
+  let html = '';
+
+  // Banners
+  if (currentTab === 0) {
+    html += `<div class="banner info" style="margin-bottom:10px;">
+      <div class="banner-content">
+        <span class="banner-type">Content</span>
+        All products with an Oak + Brass palette aesthetic (cosine similarity ≥ 0.70), sorted by match score. ${idxList.length} results from 5 suppliers.
+      </div>
+    </div>`;
+  } else if (currentTab === 1) {
+    html += `<div class="banner info" style="margin-bottom:8px;">
+      <div class="banner-content">
+        <span class="banner-type">Collaborative</span>
+        Re-ranked by co-occurrence — items that appear alongside similar palettes in past Atelier Norte projects. Supplier clustering may appear.
+      </div>
+    </div>
+    <div class="banner warn" style="margin-bottom:10px;">
+      <div class="banner-content">
+        ⚠ Supplier clustering detected — 3 of 7 results are from Aromas del Campo. Apply Step 3 to balance across suppliers.
+      </div>
+    </div>`;
+  } else if (currentTab === 2) {
+    html += `<div class="banner info" style="margin-bottom:8px;">
+      <div class="banner-content">
+        <span class="banner-type">MMR Diversity</span>
+        Maximal Marginal Relevance (λ=0.7) applied. Each slot maximises relevance while penalising redundancy — ${idxList.length} products across ${idxList.length} suppliers.
+      </div>
+    </div>
+    <div class="banner success" style="margin-bottom:10px;">
+      <div class="banner-content">
+        <span class="banner-type">✓ Diversity applied</span>
+        (MMR λ=0.7) — ${idxList.length} products across ${idxList.length} different suppliers · max 2 items per supplier enforced
+      </div>
+    </div>`;
+  }
+
+  // Product grid
+  html += `<div class="product-grid">`;
+  const clusterIds = currentTab === 1 ? new Set([1, 4, 9]) : new Set(); // Aromas del Campo IDs in step2
+
+  idxList.forEach(idx => {
+    const p = PRODUCTS[idx];
+    const match = p[matchKey];
+    if (match === null && currentTab !== 1) return;
+    const matchVal = match !== null ? match : 0;
+    const isSaved = savedItems.has(p.id);
+    const isCluster = clusterIds.has(p.id) && currentTab === 1;
+    const isDiversity = currentTab === 2;
+
+    html += `
+    <div class="product-card ${isSaved ? 'saved' : ''}" id="pc_${p.id}">
+      <div class="product-img">
+        <svg class="product-img-bg" viewBox="0 0 200 110" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g${p.id}" x1="0%" y1="0%" x2="100%" y2="100%">
+              ${getGradStops(p.id)}
+            </linearGradient>
+          </defs>
+          <rect width="200" height="110" fill="url(#g${p.id})"/>
+          ${getFurnitureIcon(p.room.type, p.color)}
+        </svg>
+        ${isCluster ? '<div class="supplier-badge">Same Supplier</div>' : ''}
+        ${isDiversity ? `<div class="supplier-badge diversity">${p.supplier.split(' ')[0]}</div>` : ''}
+        ${match !== null ? `<div class="match-badge">${match}% match</div>` : `<div class="match-badge" style="background:rgba(0,0,0,0.5);">—</div>`}
+        <div class="save-btn ${isSaved ? 'saved' : ''}" onclick="toggleSave(${p.id}, event)" title="${isSaved ? 'Remove from room' : 'Add to room'}">
+          ${isSaved ? '★' : '☆'}
+        </div>
+      </div>
+      <div class="product-info">
+        <div class="product-cat">${p.cat}</div>
+        <div class="product-name">${p.name}</div>
+        <div class="product-supplier">${p.supplier}</div>
+        <div class="product-price">${p.price}</div>
+        <div class="product-bar">
+          <div class="product-bar-fill" style="width:${matchVal}%;background:${getMatchColor(match)};"></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  area.innerHTML = html;
+  document.getElementById('recCount').textContent = `${idxList.filter(i => PRODUCTS[i][matchKey] !== null || currentTab === 1).length} results`;
+}
+
+function getGradStops(id) {
+  const grads = {
+    1: ['#D4C4A0','#9A8060','#E8DDD0'],
+    2: ['#C8A840','#7A5018','#EAC860'],
+    3: ['#D4C09A','#F2EBD8','#C8A878'],
+    4: ['#806040','#C09060','#ECC890'],
+    5: ['#F0EDE8','#D8D4CE','#B8B0A8'],
+    6: ['#6B4830','#9B6840','#C89060'],
+    7: ['#F0EDE8','#D8D0C8','#C0B8B0'],
+    8: ['#E2D8C8','#C8BEA8','#F0EAE0'],
+    9: ['#A8A0A0','#787070','#D0C8C0'],
+  };
+  const c = grads[id] || ['#E0E0E0','#C0C0C0','#F0F0F0'];
+  return `<stop offset="0%" stop-color="${c[0]}"/>
+          <stop offset="50%" stop-color="${c[1]}"/>
+          <stop offset="100%" stop-color="${c[2]}"/>`;
+}
+
+function getFurnitureIcon(type, color) {
+  switch(type) {
+    case 'floorLamp': return `<g opacity="0.7"><rect x="96" y="20" width="8" height="70" fill="${color}" rx="4"/><ellipse cx="100" cy="20" rx="28" ry="10" fill="${color}" opacity="0.8"/><ellipse cx="100" cy="90" rx="14" ry="5" fill="${color}" opacity="0.6"/></g>`;
+    case 'pendant': return `<g opacity="0.7"><rect x="98" y="0" width="4" height="30" fill="${color}"/><circle cx="100" cy="42" r="18" fill="${color}"/><circle cx="100" cy="42" r="10" fill="white" opacity="0.3"/></g>`;
+    case 'armchair': return `<g opacity="0.7"><rect x="45" y="55" width="110" height="45" fill="${color}" rx="8"/><rect x="45" y="30" width="110" height="30" fill="${color}" opacity="0.8" rx="4"/><rect x="40" y="40" width="15" height="55" fill="${color}" opacity="0.7" rx="4"/><rect x="145" y="40" width="15" height="55" fill="${color}" opacity="0.7" rx="4"/></g>`;
+    case 'tableLamp': return `<g opacity="0.7"><ellipse cx="100" cy="75" rx="22" ry="8" fill="${color}"/><rect x="95" y="45" width="10" height="35" fill="${color}" rx="3"/><polygon points="100,15 130,55 70,55" fill="${color}" opacity="0.8"/></g>`;
+    case 'console': return `<g opacity="0.7"><rect x="20" y="40" width="160" height="15" fill="${color}" rx="4"/><rect x="25" y="55" width="10" height="50" fill="${color}" rx="2"/><rect x="165" y="55" width="10" height="50" fill="${color}" rx="2"/><rect x="65" y="55" width="10" height="50" fill="${color}" rx="2"/><rect x="115" y="55" width="10" height="50" fill="${color}" rx="2"/></g>`;
+    case 'sconce': return `<g opacity="0.7"><ellipse cx="100" cy="55" rx="45" ry="25" fill="${color}"/><ellipse cx="100" cy="55" rx="25" ry="12" fill="white" opacity="0.3"/><rect x="95" y="80" width="10" height="20" fill="${color}"/></g>`;
+    case 'cushions': return `<g opacity="0.7"><rect x="35" y="45" width="70" height="55" fill="${color}" rx="10"/><rect x="115" y="55" width="55" height="45" fill="${color}" opacity="0.85" rx="8"/></g>`;
+    case 'vase': return `<g opacity="0.7"><ellipse cx="100" cy="90" rx="25" ry="8" fill="${color}"/><path d="M75 90 Q72 55 85 35 Q100 25 115 35 Q128 55 125 90 Z" fill="${color}"/><ellipse cx="100" cy="35" rx="12" ry="5" fill="${color}" opacity="0.6"/></g>`;
+    default: return '';
+  }
+}
+
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════════ */
+function setTab(idx) {
+  currentTab = idx;
+  [0,1,2].forEach(i => {
+    document.getElementById(`tab${i}`).classList.toggle('active', i === idx);
+    const ps = document.getElementById(`ps${i}`);
+    if (ps) ps.classList.toggle('active', i === idx);
+    const pd = document.getElementById(`pd${i}`);
+    if (pd) pd.classList.toggle('active', i <= idx);
+    const pd2 = document.getElementById(`pd2`);
+    if (pd2) pd2.classList.toggle('done', idx > 1);
+    const pl = document.getElementById(`pl${i}`);
+    if (pl) pl.classList.toggle('done', i < idx);
+  });
+  renderTab();
+}
+
+function setView(v) {
+  // visual only
+}
+
+/* ═══════════════════════════════════════════
+   SAVE / ADD TO ROOM
+═══════════════════════════════════════════ */
+function toggleSave(id, e) {
+  e.stopPropagation();
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+
+  if (savedItems.has(id)) {
+    savedItems.delete(id);
+    removeFurniture(id);
+  } else {
+    savedItems.add(id);
+    addFurniture(p);
+  }
+
+  updateSavedCount();
+  renderTab();
+  updateRoomList();
+}
+
+function updateSavedCount() {
+  document.getElementById('savedCount').textContent = `${savedItems.size} saved to board`;
+}
+
+function updateRoomList() {
+  const list = document.getElementById('roomItemsList');
+  const sbList = document.getElementById('sb-saved-list');
+  if (savedItems.size === 0) {
+    list.innerHTML = '<div class="room-items-empty">Empty room</div>';
+    sbList.innerHTML = '<div style="font-size:11.5px;color:var(--text-3);font-style:italic;">Nothing saved yet</div>';
+    return;
+  }
+  let html = '';
+  let sbHtml = '';
+  savedItems.forEach(id => {
+    const p = PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    html += `<div class="room-item-entry"><div class="room-item-dot" style="background:${p.color};"></div>${p.name}</div>`;
+    sbHtml += `<div style="font-size:11px;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:5px;"><div style="width:6px;height:6px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>${p.name}</div>`;
+  });
+  list.innerHTML = html;
+  sbList.innerHTML = sbHtml;
+}
+
+/* ═══════════════════════════════════════════
+   THREE.JS ROOM
+═══════════════════════════════════════════ */
+const canvas = document.getElementById('roomCanvas');
+const rightPanel = document.getElementById('rightPanel');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xF0EDE8);
+scene.fog = new THREE.Fog(0xF0EDE8, 12, 22);
+
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 50);
+camera.position.set(4.2, 3.0, 5.5);
+camera.lookAt(0, 1.2, -0.5);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+
+// Controls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 1.0, -0.5);
+controls.minDistance = 3;
+controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI / 2.1;
+controls.update();
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xfff8f0, 0.55);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xfff5e8, 0.9);
+keyLight.position.set(3, 6, 5);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 30;
+keyLight.shadow.camera.left = -6;
+keyLight.shadow.camera.right = 6;
+keyLight.shadow.camera.top = 6;
+keyLight.shadow.camera.bottom = -6;
+keyLight.shadow.bias = -0.001;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xD8E8F0, 0.35);
+fillLight.position.set(-4, 3, 2);
+scene.add(fillLight);
+
+// Room point light (window simulation)
+const windowLight = new THREE.PointLight(0xFFF8EC, 0.6, 10);
+windowLight.position.set(-2, 2.8, -3);
+scene.add(windowLight);
+
+// Materials
+const floorMat = new THREE.MeshLambertMaterial({ color: 0xDDD4C4 });
+const wallMat  = new THREE.MeshLambertMaterial({ color: 0xF5F2EE });
+const ceilMat  = new THREE.MeshLambertMaterial({ color: 0xFAF8F5 });
+const moldMat  = new THREE.MeshLambertMaterial({ color: 0xECE9E4 });
+
+// Floor
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Back wall
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMat);
+backWall.position.set(0, 2.5, -5);
+backWall.receiveShadow = true;
+scene.add(backWall);
+
+// Left wall
+const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMat);
+leftWall.position.set(-5, 2.5, 0);
+leftWall.rotation.y = Math.PI / 2;
+leftWall.receiveShadow = true;
+scene.add(leftWall);
+
+// Right wall
+const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wallMat);
+rightWall.position.set(5, 2.5, 0);
+rightWall.rotation.y = -Math.PI / 2;
+rightWall.receiveShadow = true;
+scene.add(rightWall);
+
+// Ceiling
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), ceilMat);
+ceiling.rotation.x = Math.PI / 2;
+ceiling.position.y = 5;
+scene.add(ceiling);
+
+// Baseboard molding
+const moldGeo = new THREE.BoxGeometry(10, 0.08, 0.04);
+const backMold = new THREE.Mesh(moldGeo, moldMat);
+backMold.position.set(0, 0.04, -4.98);
+scene.add(backMold);
+const leftMold = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 10), moldMat);
+leftMold.position.set(-4.98, 0.04, 0);
+scene.add(leftMold);
+
+// Window on left wall
+const winGeo = new THREE.PlaneGeometry(1.8, 2.2);
+const winMat = new THREE.MeshBasicMaterial({ color: 0xC8E8F8, transparent: true, opacity: 0.6 });
+const win = new THREE.Mesh(winGeo, winMat);
+win.position.set(-4.95, 2.2, -1.5);
+win.rotation.y = Math.PI / 2;
+scene.add(win);
+// Window frame
+[[-0.9,-0.9],[0.9,-0.9],[-0.9,0.9],[0.9,0.9]].forEach(([dx,dy]) => {
+  // outer frame lines
+});
+const winFrameMat = new THREE.MeshLambertMaterial({ color: 0xE8E0D8 });
+const wfH = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.04, 0.04), winFrameMat);
+const wfH2 = wfH.clone(); const wfV = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.25, 0.04), winFrameMat);
+wfH.position.set(-4.93, 3.32, -1.5); wfH.rotation.y = Math.PI/2;
+wfH2.position.set(-4.93, 1.12, -1.5); wfH2.rotation.y = Math.PI/2;
+wfV.position.set(-4.93, 2.2, -1.5);
+scene.add(wfH, wfH2, wfV);
+
+// Furniture objects map
+const furnitureObjects = {};
+
+function addFurniture(p) {
+  if (furnitureObjects[p.id]) return;
+  const group = buildFurniture(p);
+  if (!group) return;
+  furnitureObjects[p.id] = group;
+  // Start scaled to 0 and animate to 1
+  group.scale.set(1, 0.001, 1);
+  scene.add(group);
+  animateScale(group, 1, 0.5);
+}
+
+function removeFurniture(id) {
+  const obj = furnitureObjects[id];
+  if (!obj) return;
+  animateScale(obj, 0, 0.3, () => {
+    scene.remove(obj);
+    delete furnitureObjects[id];
+  });
+}
+
+function animateScale(obj, targetY, duration, onComplete) {
+  const start = performance.now();
+  const fromY = obj.scale.y;
+  function tick(now) {
+    const t = Math.min((now - start) / (duration * 1000), 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    obj.scale.y = fromY + (targetY - fromY) * ease;
+    if (t < 1) requestAnimationFrame(tick);
+    else if (onComplete) onComplete();
+  }
+  requestAnimationFrame(tick);
+}
+
+function buildFurniture(p) {
+  const color = new THREE.Color(p.color);
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const r = p.room;
+  const group = new THREE.Group();
+  group.position.set(r.x, 0, r.z);
+
+  switch (r.type) {
+    case 'floorLamp': {
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 1.65, 10), mat);
+      stand.position.y = 0.825;
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.20, 0.18, 16), new THREE.MeshLambertMaterial({ color: lighten(color, 0.2) }));
+      shade.position.y = 1.72;
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.045, 16), mat);
+      base.position.y = 0.022;
+      [stand, shade, base].forEach(m => { m.castShadow = true; m.receiveShadow = true; });
+      group.add(stand, shade, base);
+      break;
+    }
+    case 'pendant': {
+      // Wire from ceiling
+      const wireY = 4.5; // ceiling y position
+      const wireLen = 1.8;
+      const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, wireLen, 6), new THREE.MeshLambertMaterial({ color: 0x888880 }));
+      wire.position.y = wireY - wireLen/2;
+      const shade = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 10), mat);
+      shade.position.y = wireY - wireLen - 0.22;
+      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8), new THREE.MeshLambertMaterial({ color: 0xFFFAE8, emissive: 0x887700, emissiveIntensity: 0.3 }));
+      inner.position.copy(shade.position);
+      [wire, shade, inner].forEach(m => m.castShadow = true);
+      group.add(wire, shade, inner);
+      break;
+    }
+    case 'armchair': {
+      const woodMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(0x7A5A38) });
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.14, 0.72), mat);
+      seat.position.y = 0.44;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.68, 0.12), mat);
+      back.position.set(0, 0.78, -0.30);
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.22, 0.62), mat);
+      armL.position.set(-0.33, 0.56, 0);
+      const armR = armL.clone(); armR.position.x = 0.33;
+      [[-0.30,-0.28],[0.30,-0.28],[-0.30,0.28],[0.30,0.28]].forEach(([x,z]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.40, 0.045), woodMat);
+        leg.position.set(x, 0.20, z); leg.castShadow = true; group.add(leg);
+      });
+      [seat, back, armL, armR].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+      break;
+    }
+    case 'tableLamp': {
+      // Sits on top of console, console is at y=0.84
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.32, 12), mat);
+      base.position.y = 0.84 + 0.16;
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.24, 12), new THREE.MeshLambertMaterial({ color: lighten(color, 0.25) }));
+      shade.rotation.z = Math.PI;
+      shade.position.y = 0.84 + 0.32 + 0.14;
+      [base, shade].forEach(m => { m.castShadow = true; group.add(m); });
+      break;
+    }
+    case 'console': {
+      const oakMat = new THREE.MeshLambertMaterial({ color });
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.065, 0.46), oakMat);
+      top.position.y = 0.84;
+      top.castShadow = true; top.receiveShadow = true;
+      group.add(top);
+      [[-0.88,-0.18],[0.88,-0.18],[-0.88,0.18],[0.88,0.18]].forEach(([x,z]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.80, 0.05), oakMat);
+        leg.position.set(x, 0.40, z); leg.castShadow = true; group.add(leg);
+      });
+      break;
+    }
+    case 'sconce': {
+      // Wall-mounted on left wall (x=-5)
+      group.position.set(-4.85, 1.85, r.z);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.025, 0.025), mat);
+      arm.position.x = 0.11;
+      const diffuser = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, 0.22), new THREE.MeshLambertMaterial({ color: lighten(color, 0.15), emissive: new THREE.Color(0xFFF8E0), emissiveIntensity: 0.1 }));
+      diffuser.position.x = 0.26;
+      [arm, diffuser].forEach(m => { m.castShadow = true; group.add(m); });
+      break;
+    }
+    case 'cushions': {
+      // Add on top of armchair
+      const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.13, 0.36), mat);
+      c1.position.set(-0.12, 0.57, -0.06);
+      const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.11, 0.28), new THREE.MeshLambertMaterial({ color: lighten(color, 0.1) }));
+      c2.position.set(0.11, 0.59, -0.02);
+      [c1, c2].forEach(m => { m.castShadow = true; group.add(m); });
+      break;
+    }
+    case 'vase': {
+      // On console (y=0.84)
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.09, 0.32, 12), mat);
+      body.position.y = 0.84 + 0.16;
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.065, 0.10, 12), mat);
+      neck.position.y = 0.84 + 0.37;
+      [body, neck].forEach(m => { m.castShadow = true; group.add(m); });
+      break;
+    }
+    default: return null;
+  }
+
+  return group;
+}
+
+function lighten(color, amount) {
+  const c = color.clone();
+  c.r = Math.min(1, c.r + amount);
+  c.g = Math.min(1, c.g + amount);
+  c.b = Math.min(1, c.b + amount);
+  return c;
+}
+
+// Resize handler
+function resize() {
+  const w = rightPanel.clientWidth;
+  const h = rightPanel.clientHeight;
+  if (w === 0 || h === 0) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Animate loop
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+renderTab();
+// Resize after fonts load
+setTimeout(resize, 200);
+</script>
+</body>
+</html>
